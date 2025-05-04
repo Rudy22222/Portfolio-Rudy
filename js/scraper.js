@@ -1,54 +1,45 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const proxyUrl = "https://api.allorigins.win/get?url=";
+  const targetUrl = "https://siecledigital.fr/cybersecurite/";
   const loader = document.getElementById("loader");
-  const articlesDiv = document.getElementById("articles-cyber");
-
-  const API_KEY = "41dd02cecf07353936a71c316ce04518";
-  const targetUrl = "https://cyber.gouv.fr/publications";
-  const fullUrl = `https://api.scraperapi.com/?api_key=${API_KEY}&url=${encodeURIComponent(
-    targetUrl
-  )}`;
+  const articlesDiv = document.getElementById("articles-siecledigital");
 
   loader.style.display = "block";
 
-  fetch(fullUrl)
-    .then((res) => res.text())
-    .then((html) => {
+  fetch(proxyUrl + encodeURIComponent(targetUrl))
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    })
+    .then((data) => {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
+      const doc = parser.parseFromString(data.contents, "text/html");
 
       const articles = [];
+      doc.querySelectorAll("article").forEach((element) => {
+        const linkElement = element.querySelector("a[href]");
+        const titleElement = element.querySelector("h2");
+        const imgElement = element.querySelector("img");
 
-      doc.querySelectorAll(".views-row").forEach((row) => {
-        const anchor = row.querySelector("a");
-        const infoDiv = row.querySelector(".list-item .info");
+        if (linkElement && titleElement) {
+          const title = titleElement.textContent.trim();
+          const link = linkElement.getAttribute("href");
+          const imageUrl = imgElement
+            ? imgElement.getAttribute("src")
+            : "images/siecledigital.png";
+          const dateMatch = element.innerHTML.match(/Publié le\s*(.*?)\s*à/);
+          const date = dateMatch ? dateMatch[1].trim() : "Date inconnue";
 
-        if (!anchor || !infoDiv) return;
-
-        const titleElement = infoDiv.querySelector("h3");
-        const title = titleElement ? titleElement.textContent.trim() : "";
-        const link = "https://cyber.gouv.fr" + anchor.getAttribute("href");
-
-        const dateElement = infoDiv.querySelector(".date");
-        const date = dateElement ? dateElement.textContent.trim() : "";
-
-        const descElement = infoDiv.querySelector(".field-body");
-        let description = descElement ? descElement.textContent.trim() : "";
-        if (description.length > 115) {
-          description = description.substring(0, 115) + "…";
+          articles.push({ title, link, date, imageUrl });
         }
-
-        const imgElement = row.querySelector("img");
-        const imageUrl = imgElement
-          ? "https://cyber.gouv.fr" + imgElement.getAttribute("src")
-          : "./images/ANSSI.png";
-
-        articles.push({ title, link, date, description, imageUrl });
       });
 
-      displayArticles(articles.slice(0, 9));
+      displayArticles(articles);
     })
-    .catch((err) => {
-      console.error("Erreur ScraperAPI :", err);
+    .catch((error) => {
+      console.error("Erreur lors de la récupération des articles :", error);
       loader.style.display = "none";
     });
 
@@ -56,38 +47,20 @@ document.addEventListener("DOMContentLoaded", () => {
     articlesDiv.innerHTML = "";
     articles.forEach((article) => {
       const articleDiv = document.createElement("div");
-      articleDiv.classList.add("col-md-4", "mb-4");
-
-      const imageStyle = `
-          width: 100%;
-          height: 180px;
-          object-fit: contain;
-        `;
-
-      const card = `
-          <div class="card h-100 border-0 shadow-sm animate_animated animate_fadeIn">
-            <img 
-              src="${article.imageUrl}" 
-              alt="${article.title}" 
-              style="${imageStyle}" 
-              onerror="this.src='images/ANSSI.png'"
-            >
-            <div class="card-body d-flex flex-column">
-              <p class="text-muted small mb-2">${article.date}</p>
-              <h5 class="card-title mb-2 fw-semibold" style="font-size: 1.05rem; min-height: 48px;">${article.title}</h5>
-              <p class="card-text text-secondary flex-grow-1" style="font-size: 0.9rem; line-height: 1.4;">${article.description}</p>
-              <a href="${article.link}" class="btn btn-primary btn-sm mt-3" target="_blank">
-                En savoir plus
-              </a>
-            </div>
-          </div>
-        `;
-
-      articleDiv.innerHTML = card;
+      articleDiv.classList.add("articles-siecledigital");
+      articleDiv.innerHTML = `
+      <div class="d-flex mb-3 border border-white">
+        <img src="${article.imageUrl}" alt="${article.title}" class="img-article" style="max-width: 300px; height: auto; object-fit: cover;">
+        <div class="p-3">
+          <h4>${article.title}</h4>
+          <p>${article.date}</p>
+          <a class="btn btn-light" href="${article.link}" target="_blank">En savoir plus</a>
+        </div>
+      </div>
+      `;
       articlesDiv.appendChild(articleDiv);
     });
-
     loader.style.display = "none";
-  }
-  console.log("Articles displayed:", articles);
+    console.log("Articles affichés :", articles);
+  }
 });
